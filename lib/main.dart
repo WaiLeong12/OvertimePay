@@ -12,107 +12,208 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String? selectedRate;
-  double bonusRate = 0 ?? 0;
-  double calRate = 0 ?? 0;
-  double calBonusSalary = 0 ?? 0;
-  double totalBonusSalary = 0;
+  TextEditingController loanAmountCtrl = TextEditingController();
+  TextEditingController netIncomeCtrl = TextEditingController();
+  TextEditingController loanInterestCtrl = TextEditingController();
+  int? selectedItem;
+  bool? isGuarantorChecked = false;
+  String? selectedCarType;
+  double totalRepayment = 0;
+  bool? eligible;
+  double totalInterest = 0;
+  String? loanApplicationResult;
 
-  final TextEditingController empAnnual = TextEditingController();
+  bool isInterestRateValid(){
+    double? interest = double.tryParse(loanInterestCtrl.text);
+    if(interest == null || selectedCarType == null){
+      return false;
+    }
 
-  void _calculateBonus() {
-    double annualSalary = double.tryParse(empAnnual.text)!;
-    String? rate = selectedRate;
+    if(selectedCarType == 'New'){
+      return interest >= 2.5 && interest <= 3.2;
+    }
+    else if(selectedCarType == 'Used'){
+      return interest >= 2.5 && interest <= 3.2;
+    }else{
+      return false;
+    }
+  }
+
+
+  void _calculateInterest(){
+    double loan = double.tryParse(loanAmountCtrl.text)!;
+    double interest = double.tryParse(loanInterestCtrl.text)!;
+    int loanPeriod = selectedItem!;
+
+    totalInterest = loan * (interest / 100) * loanPeriod;
 
     setState(() {
-      if (rate == 'Rate 1, no bonus') {
-        bonusRate = 0;
-        calBonusSalary = annualSalary;
-      } else if (rate == 'Rate 2, no bonus') {
-        bonusRate = 0;
-        calBonusSalary = annualSalary;
-      } else if (rate == 'Rate 3, 5% bonus') {
-        bonusRate = 0.05;
-        calRate = annualSalary * bonusRate;
-        calBonusSalary = annualSalary + calRate;
-      } else if (rate == 'Rate 4, 10% bonus') {
-        bonusRate = 0.1;
-        calRate = annualSalary * bonusRate;
-        calBonusSalary = annualSalary + calRate;
-      } else if (rate == 'Rate 5, 15% bonus') {
-        bonusRate = 0.15;
-        calRate = annualSalary * bonusRate;
-        calBonusSalary = annualSalary + calRate;
-      } else {
-        return;
-      }
-
-      setState(() {
-        totalBonusSalary = calBonusSalary;
-      });
+      totalInterest.toString();
     });
   }
 
-  void _clearInput() {
-    empAnnual.clear();
+  void _calculateRepayment(){
+    double? loan = double.tryParse(loanAmountCtrl.text);
+    double? netIncome = double.tryParse(netIncomeCtrl.text);
+    double? interest = double.tryParse(loanInterestCtrl.text);
+    int loanPeriod = selectedItem!;
+    bool? guarantor = isGuarantorChecked;
+
+    if (loan == null || netIncome == null || interest == null || loanPeriod == null || selectedCarType == null) {
+      setState(() {
+        loanApplicationResult = 'Please fill in all fields correctly.';
+        totalRepayment = 0;
+        eligible = false;
+      });
+      return;
+    }
+
+    if(!isInterestRateValid()){
+      setState(() {
+        loanApplicationResult = 'Invalid interest rate for selected car type!';
+        totalRepayment = 0;
+        eligible = false;
+      });
+      return;
+    }
+
+    _calculateInterest();
+
+    totalRepayment = (loan + totalInterest) / (loanPeriod * 12);
+
+    setState(() {
+      if(totalRepayment <= (0.3 * netIncome)){
+        eligible = true;
+        loanApplicationResult = 'Eligible, You passed your loan application.';
+      }
+      else if(totalRepayment > (0.3 * netIncome) && guarantor == true){
+        eligible = true;
+        loanApplicationResult = 'Eligible(with guarantor), You passed your loan application.';
+      }
+      else if(totalRepayment > (0.3 * netIncome) && guarantor == false){
+        eligible = false;
+        loanApplicationResult = 'not Eligible, You failed the loan application.';
+      }else{
+        return;
+      }
+    });
+
+    setState(() {
+      loanApplicationResult.toString();
+    });
   }
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Employee Bonus Calculation'),
-          backgroundColor: Colors.blue,
+          backgroundColor: Colors.cyan,
+          title: const Text('Car Loan'),
         ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             spacing: 8,
             children: [
-              const Text('Employee Bonus Calculation'),
+              const Text('Loan Amount'),
               TextField(
-                controller: empAnnual,
+                controller: loanAmountCtrl,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   prefix: Icon(Icons.search),
                   suffixIcon: Icon(Icons.clear),
-                  label: Text('Enter your salary'),
-                  hintText: '5000',
-                  helperText: '',
+                  label: Text('Enter your loan amount'),
+                  filled: true,
                   border: OutlineInputBorder(),
                 ),
               ),
-              DropdownButton<String>(
-                value: selectedRate,
-                hint: const Text('Please select a rate'),
-                items: <String>[
-                  'Rate 1, no bonus',
-                  'Rate 2, no bonus',
-                  'Rate 3, 5% bonus',
-                  'Rate 4, 10% bonus',
-                  'Rate 5, 15% bonus'
-                ].map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
+              const Text('Net Income'),
+              TextField(
+                controller: netIncomeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  prefix: Icon(Icons.search),
+                  suffixIcon: Icon(Icons.clear),
+                  label: Text('Enter your net income'),
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              DropdownButton<int>(
+                value: selectedItem,
+                hint: const Text('Select loan period(Year)'),
+                items: <int>[1, 2, 3, 4, 5].map((int value) {
+                  return DropdownMenuItem<int>(
                     value: value,
-                    child: Text(value),
+                    child: Text(value.toString()),
                   );
                 }).toList(),
-                onChanged: (String? newValue) {
+                onChanged: (int? newValue) {
                   setState(() {
-                    selectedRate = newValue;
+                    selectedItem = newValue;
                   });
                 },
               ),
-              ElevatedButton(
-                onPressed: _calculateBonus,
-                child: const Text('Calculate'),
+
+              const Text('Interest Rate'),
+              TextField(
+                controller: loanInterestCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  prefix: Icon(Icons.search),
+                  suffixIcon: Icon(Icons.clear),
+                  label: Text('Enter your interest Rate'),
+                  filled: true,
+                  border: OutlineInputBorder(),
+                ),
               ),
+
+              CheckboxListTile(
+                title: const Text('I have a guarantor'),
+                value: isGuarantorChecked,
+                onChanged: (bool? newValue) {
+                  setState(() {
+                    isGuarantorChecked = newValue ?? false;
+                  });
+                },
+              ),
+
+              RadioListTile(
+                title: const Text('New'),
+                  value: 'New',
+                  groupValue: selectedCarType,
+                  onChanged: (newValue){
+                    setState(() {
+                      selectedCarType = newValue.toString();
+                    });
+                  },
+              ),
+
+              RadioListTile(
+                title: const Text('Used'),
+                value: 'Used',
+                groupValue: selectedCarType,
+                onChanged: (newValue){
+                  setState(() {
+                    selectedCarType = newValue.toString();
+                  });
+                },
+              ),
+
               Text(
-                'Total Salary with Bonus: RM $totalBonusSalary',
+                'Repayment : RM $totalRepayment',
               ),
+
+              Text(
+                'Eligibility : $loanApplicationResult',
+              ),
+
+              ElevatedButton(
+                  onPressed: _calculateRepayment,
+                  child: const Text('Calculate'),
+              )
             ],
           ),
         ),
